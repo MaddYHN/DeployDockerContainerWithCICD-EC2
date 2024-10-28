@@ -8,14 +8,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:  # Define environment variables here
+      AWS_REGION: us-east-2  # Specify your AWS region here
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Log in to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
-        with:
-          region: us-east-2  # Specify your AWS region here
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}  # Use the region from environment variables
 
       - name: Build and push Docker image
         run: |
@@ -25,7 +27,7 @@ jobs:
 
       - name: Deploy to ECS
         run: |
-          aws ecs update-service --cluster devops-static --service devops-static-website --force-new-deployment --region us-east-2
+          aws ecs update-service --cluster devops-static --service devops-static-website --force-new-deployment --region $AWS_REGION
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
