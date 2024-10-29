@@ -67,25 +67,31 @@ jobs:
       - name: Check if ECS service exists
         id: check-service
         run: |
-          SERVICE_EXISTS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].serviceArn" --output text)
-          echo "service_exists=$SERVICE_EXISTS" >> $GITHUB_ENV
+          SERVICE_INFO=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0]" --output json)
+          echo "service_info=$SERVICE_INFO" >> $GITHUB_ENV
 
       - name: Create or update ECS service
         run: |
-          if [ -z "${{ env.service_exists }}" ]; then
-            echo "Creating ECS service..."
-            aws ecs create-service \
-              --cluster $ECS_CLUSTER \
-              --service-name $ECS_SERVICE \
-              --task-definition $ECS_SERVICE \
-              --desired-count 1 \
-              --launch-type EC2 \
-              --region $AWS_REGION
-          else
+          SERVICE_STATUS=$(echo "${{ env.service_info }}" | jq -r '.status')
+          if [ "$SERVICE_STATUS" == "ACTIVE" ]; then
             echo "Updating ECS service..."
             aws ecs update-service \
               --cluster $ECS_CLUSTER \
               --service $ECS_SERVICE \
               --force-new-deployment \
               --region $AWS_REGION
+          else
+            if [ -z "${{ env.service_info }}" ] || [ "$SERVICE_STATUS" == "DRAINING" ]; then
+              echo "Creating ECS service..."
+              aws ecs create-service \
+                --cluster $ECS_CLUSTER \
+                --service-name $ECS_SERVICE \
+                --task-definition $ECS_SERVICE \
+                --desired-count 1 \
+                --launch-type EC2 \
+                --region $AWS_REGION
+            else
+              echo "Service is not active, status is: $SERVICE_STATUS"
+              exit 1
+            fi
           fi
