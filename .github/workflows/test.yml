@@ -46,6 +46,7 @@ jobs:
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Register new task definition
+        id: register-task
         run: |
           aws ecs register-task-definition \
             --family $ECS_SERVICE \
@@ -63,10 +64,28 @@ jobs:
             }]" \
             --region $AWS_REGION
 
-      - name: Deploy Amazon ECS task definition
+      - name: Check if ECS service exists
+        id: check-service
         run: |
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE \
-            --force-new-deployment \
-            --region $AWS_REGION
+          SERVICE_EXISTS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION --query "services[0].serviceArn" --output text)
+          echo "service_exists=$SERVICE_EXISTS" >> $GITHUB_ENV
+
+      - name: Create or update ECS service
+        run: |
+          if [ -z "${{ env.service_exists }}" ]; then
+            echo "Creating ECS service..."
+            aws ecs create-service \
+              --cluster $ECS_CLUSTER \
+              --service-name $ECS_SERVICE \
+              --task-definition $ECS_SERVICE \
+              --desired-count 1 \
+              --launch-type EC2 \
+              --region $AWS_REGION
+          else
+            echo "Updating ECS service..."
+            aws ecs update-service \
+              --cluster $ECS_CLUSTER \
+              --service $ECS_SERVICE \
+              --force-new-deployment \
+              --region $AWS_REGION
+          fi
