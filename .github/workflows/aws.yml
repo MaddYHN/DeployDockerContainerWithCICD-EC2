@@ -18,7 +18,6 @@ jobs:
 
       - name: Log in to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
-        
 
       - name: Build and push Docker image
         run: |
@@ -26,8 +25,18 @@ jobs:
           docker tag devops-static:latest 717211314188.dkr.ecr.us-east-2.amazonaws.com/devops-static:latest
           docker push 717211314188.dkr.ecr.us-east-2.amazonaws.com/devops-static:latest
 
+      - name: Register new task definition
+        run: |
+          # Replace <container-name> with the actual container name in your definitions
+          aws ecs register-task-definition \
+            --family devops-static \
+            --container-definitions file://container-definitions.json \
+            --region $AWS_REGION
+
       - name: Deploy to ECS
         run: |
-          aws ecs update-service --cluster devops-static --service devops-static-website --force-new-deployment --region $AWS_REGION
-        
-
+          aws ecs update-service \
+            --cluster devops-static \
+            --service devops-static-website \
+            --force-new-deployment \
+            --region $AWS_REGION
