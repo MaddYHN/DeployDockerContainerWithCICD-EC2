@@ -15,8 +15,8 @@ jobs:
       ECR_REGISTRY: 717211314188.dkr.ecr.us-east-2.amazonaws.com  # Your ECR registry
       REPO: devops-static  # Your ECR repository name
       VERSION: ${{ github.sha }}  # GitHub SHA for versioning
-      TAG: ${{ env.ECR_REGISTRY }}/${{ env.REPO }}:${{ env.VERSION }}  # Full tag with version
-      LATEST: ${{ env.ECR_REGISTRY }}/${{ env.REPO }}:latest  # Latest tag
+      TAG: ${{ secrets.ECR_REGISTRY }}/${{ secrets.REPO }}:${{ github.sha }}  # Full tag with version
+      LATEST: ${{ secrets.ECR_REGISTRY }}/${{ secrets.REPO }}:latest  # Latest tag
 
     steps:
       - name: Checkout code
@@ -24,13 +24,13 @@ jobs:
 
       - name: Log in to Amazon ECR
         run: |
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ env.REPO }} -t "${{ env.TAG }}" -t "${{ env.LATEST }}" .
-          docker push "${{ env.TAG }}"
-          docker push "${{ env.LATEST }}"
+          docker build -t $REPO -t "$TAG" -t "$LATEST" .
+          docker push "$TAG"
+          docker push "$LATEST"
 
       - name: Deploy to ECS
         run: |
@@ -38,4 +38,4 @@ jobs:
             --cluster devops-static \
             --service devops-static-website \
             --force-new-deployment \
-            --region ${{ env.AWS_REGION }}
+            --region $AWS_REGION
