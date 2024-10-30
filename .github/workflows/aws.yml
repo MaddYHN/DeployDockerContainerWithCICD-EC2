@@ -8,30 +8,29 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:  # Define environment variables here
+    env:
       AWS_REGION: us-east-2  # Specify your AWS region here
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      ECR_REGISTRY: 717211314188.dkr.ecr.us-east-2.amazonaws.com  # Your ECR registry
+      REPO: devops-static  # Your ECR repository name
+      VERSION: ${{ github.sha }}  # GitHub SHA for versioning
+      TAG: ${{ env.ECR_REGISTRY }}/${{ env.REPO }}:${{ env.VERSION }}  # Full tag with version
+      LATEST: ${{ env.ECR_REGISTRY }}/${{ env.REPO }}:latest  # Latest tag
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Log in to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
 
       - name: Build and push Docker image
         run: |
-          docker build -t devops-static .
-          docker tag devops-static:latest 717211314188.dkr.ecr.us-east-2.amazonaws.com/devops-static:latest
-          docker push 717211314188.dkr.ecr.us-east-2.amazonaws.com/devops-static:latest
-
-      - name: Register new task definition
-        run: |
-          # Replace <container-name> with the actual container name in your definitions
-          aws ecs register-task-definition \
-            --family devops-static \
-            --container-definitions file://container-definitions.json \
-            --region $AWS_REGION
+          docker build -t ${{ env.REPO }} -t "${{ env.TAG }}" -t "${{ env.LATEST }}" .
+          docker push "${{ env.TAG }}"
+          docker push "${{ env.LATEST }}"
 
       - name: Deploy to ECS
         run: |
@@ -39,4 +38,4 @@ jobs:
             --cluster devops-static \
             --service devops-static-website \
             --force-new-deployment \
-            --region $AWS_REGION
+            --region ${{ env.AWS_REGION }}
